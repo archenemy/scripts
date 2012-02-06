@@ -1,6 +1,49 @@
 #!/bin/bash
 # PRE-COMMIT HOOK
 #
+PHP="/Applications/MAMP/bin/php/php5.3.6/bin/php"
+SVNLOOK="/usr/bin/svnlook"
+REPOS="$1"
+TXN="$2"
+GREP="/usr/bin/grep"
+
+# Nada de mensajes de commit vacíos.
+$SVNLOOK log -t "$TXN" "$REPOS" | \
+  grep "[a-zA-Z0-9]" > /dev/null || exit 1
+
+
+# Fuera archivos basura
+CRAP_FILES=( '.DS_Store' 'Thumbs.db' '.directory' '.project' )
+for FILE in $($SVNLOOK changed -t "$TXN" "$REPOS" | cut -b 5- | xargs basename); do
+	for CRAP in "${CRAP_FILES[@]}"; do
+		if [ "$FILE" = "$CRAP" ]; then
+			echo "Se ha añadido el archivo basura $FILE" 1>&2
+			ERRORES=1
+		fi
+	done
+done
+
+
+# Evitar errores de sintaxis PHP
+CHANGED=`$SVNLOOK changed -t "$TXN" "$REPOS" | cut -b 5- | $GREP \\.php$`
+for FILE in $CHANGED
+do 
+	MESSAGE=`$SVNLOOK cat -t "$TXN" "$REPOS" "$FILE" | $PHP -l` 
+	if [ $? -ne 0 ] 
+	then 
+		echo "Error de sintaxis PHP en: $FILE" 1>&2 
+		ERRORES=1
+	fi 
+done
+
+if [ "$ERRORES"=1 ];
+then
+	exit 1
+fi
+
+# Todo bien
+exit 0
+
 # The pre-commit hook is invoked before a Subversion txn is
 # committed.  Subversion runs this hook by invoking a program
 # (script, executable, binary, etc.) named 'pre-commit' (for which
@@ -62,49 +105,3 @@
 # the Subversion repository at
 # http://svn.apache.org/repos/asf/subversion/trunk/tools/hook-scripts/ and
 # http://svn.apache.org/repos/asf/subversion/trunk/contrib/hook-scripts/
-
-PHP="/Applications/MAMP/bin/php/php5.3.6/bin/php"
-SVNLOOK="/usr/bin/svnlook"
-REPOS="$1"
-TXN="$2"
-GREP="/usr/bin/grep"
-
-# Make sure that the log message contains some text.
-#SVNLOOK=/usr/bin/svnlook
-$SVNLOOK log -t "$TXN" "$REPOS" | \
-  grep "[a-zA-Z0-9]" > /dev/null || exit 1
-
-
-# Do not commit crap like ...
-CRAP_FILES=( '.DS_Store' 'Thumbs.db' '.directory' '.project' )
-for FILE in $($SVNLOOK changed -t "$TXN" "$REPOS" | cut -b 5- | xargs basename); do
-        for CRAP in "${CRAP_FILES[@]}"; do
-                if [ "$FILE" = "$CRAP" ]; then
-						echo "Se ha añadido el archivo basura $FILE" 1>&2
-						ERRORES=1
-                fi
-        done
-done
-
-CHANGED=`$SVNLOOK changed -t "$TXN" "$REPOS" | cut -b 5- | $GREP \\.php$`
-for FILE in $CHANGED
-do 
-    MESSAGE=`$SVNLOOK cat -t "$TXN" "$REPOS" "$FILE" | $PHP -l` 
-    if [ $? -ne 0 ] 
-    then 
-        echo "Error de sintaxis PHP en: $FILE" 1>&2 
-        ERRORES=1
-    fi 
-done
-
-if [ "$ERRORES"=1 ];
-then
-	exit 1
-fi
-
-# Check that the author of this commit has the rights to perform
-# the commit on the files and directories being modified.
-#commit-access-control.pl "$REPOS" "$TXN" commit-access-control.cfg || exit 1
-
-# All checks passed, so allow the commit.
-exit 0
