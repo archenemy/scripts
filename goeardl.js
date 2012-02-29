@@ -1,0 +1,1 @@
+javascript:var%20b=document.body;var%20GR________bookmarklet_domain='http://www.googlecode.com';if(b&&!document.xmlVersion){void(z=document.createElement('script'));void(z.src='http://joserobleda.googlecode.com/files/goeardownload3.js');void(b.appendChild(z));}else{}
